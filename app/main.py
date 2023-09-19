@@ -77,6 +77,8 @@ async def read_item(
             
             
 
+            # Retrives permanent location from Holdings
+            permanent_location = _retrieve_permanent_location(holdings, headers)
 
             # Trim spaces from call number components
             prefix, suffix = _trim_callno_components(item=item)
@@ -103,6 +105,9 @@ async def read_item(
                     )
                     item["effectiveCallNumberComponents"]["suffix"] = processed_suffix
             
+            if item["effectiveCallNumberComponents"]["prefix"] is None:
+                item["effectiveCallNumberComponents"]["prefix"] = permanent_location
+
             xml_raw = json2xml.Json2xml(item, wrapper="item").to_xml()
 
         except IndexError:
@@ -152,7 +157,27 @@ def _replace_string(string: str, regex: List):
     return string
 
 
-def _trim_callno_components(item: dict):
+def _retrieve_permanent_location(holdings_id: str, okapi_headers: dict) -> str:
+    """
+    Queries Holdings and Locations Okapi endpoints and returns name
+    of the location
+    """
+    holdings_result = requests.get(f"{os.getenv('OKAPI_URL')}/holdings-storage/holdings/{holdings_id}",
+                                   headers=okapi_headers)
+    holdings_result.raise_for_status()
+    permanent_location_id = holdings_result.json().get("permanentLocationId")
+    if permanent_location_id is None:
+        raise ValueError(f"Holding {holdings_id} missing permanent location")
+    location_result = requests.get(f"{os.getenv('OKAPI_URL')}/location/{permanent_location_id}",
+                                   headers=okapi_headers)
+    location_result.raise_for_status()
+    location_name = location_result.json().get("name")
+    if location_name is None:
+        raise ValueError(f"Location {permanent_location_id} missing Name")
+    return location_name
+
+
+def _trim_callno_components(item: dict, permanent_location: str):
     """
     Collapse multiple spaces to singular and remove leading/tailing spaces.
     Returns call number prefix and suffix for later string replacement.

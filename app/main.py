@@ -53,7 +53,7 @@ async def read_item(
         "X-Okapi-Token": _okapi_login(),
     }
     folio_inventory = requests.get(url, params=params, headers=headers)
-    plate_funds = ["p2053","p2052"]
+    plate_funds = ["p2053", "p2052"]
 
     if format == "json":
         return folio_inventory.json()
@@ -65,18 +65,30 @@ async def read_item(
             item = data["items"][0]
 
             holdings = item["holdingsRecordId"]
-            pol = requests.get(os.getenv('OKAPI_URL') + "/orders/holding-summary/" + holdings, headers=headers).json()
+            pol = requests.get(
+                os.getenv("OKAPI_URL") + "/orders/holding-summary/" + holdings,
+                headers=headers,
+            ).json()
             if len(pol["holdingSummaries"]) > 0:
                 pol = pol["holdingSummaries"][0]
-                fund = requests.get(os.getenv('OKAPI_URL') + "/orders/order-lines/" + pol["poLineId"], headers=headers).json()
+                fund = requests.get(
+                    os.getenv("OKAPI_URL") + "/orders/order-lines/" + pol["poLineId"],
+                    headers=headers,
+                ).json()
                 if "fundDistribution" in fund:
                     for f in fund["fundDistribution"]:
                         if "code" in f and f["code"] in plate_funds:
                             print(f["code"])
                             item["fund"] = f["code"]
-            
-            
 
+            # Retrives permanent location id and name from Holdings
+            permanent_location_id, permanent_location = _retrieve_permanent_location(
+                holdings, headers
+            )
+            item["effectiveLocation"] = {
+                "id": permanent_location_id,
+                "name": permanent_location,
+            }
 
             # Trim spaces from call number components
             prefix, suffix = _trim_callno_components(item=item)
@@ -102,7 +114,7 @@ async def read_item(
                         string=suffix, regex=suffix_regex
                     )
                     item["effectiveCallNumberComponents"]["suffix"] = processed_suffix
-            
+
             xml_raw = json2xml.Json2xml(item, wrapper="item").to_xml()
 
         except IndexError:
@@ -140,7 +152,7 @@ def _okapi_login():
 
 def _reps_to_regex(replacements: List, field: str):
     return [
-        (fr"^{rep['string']}$", f"{rep['replacement']}")
+        (rf"^{rep['string']}$", f"{rep['replacement']}")
         for rep in replacements
         if rep["field"] == field
     ]
@@ -150,6 +162,30 @@ def _replace_string(string: str, regex: List):
     for r in regex:
         string = re.sub(r[0], r[1], string, flags=re.IGNORECASE)
     return string
+
+
+def _retrieve_permanent_location(holdings_id: str, okapi_headers: dict) -> tuple:
+    """
+    Queries Holdings and Locations Okapi endpoints and returns uuid and name
+    of the location
+    """
+    holdings_result = requests.get(
+        f"{os.getenv('OKAPI_URL')}/holdings-storage/holdings/{holdings_id}",
+        headers=okapi_headers,
+    )
+    holdings_result.raise_for_status()
+    permanent_location_id = holdings_result.json().get("permanentLocationId")
+    if permanent_location_id is None:
+        raise ValueError(f"Holding {holdings_id} missing permanent location")
+    location_result = requests.get(
+        f"{os.getenv('OKAPI_URL')}/locations/{permanent_location_id}",
+        headers=okapi_headers,
+    )
+    location_result.raise_for_status()
+    location_name = location_result.json().get("name")
+    if location_name is None:
+        raise ValueError(f"Location {permanent_location_id} missing Name")
+    return permanent_location_id, location_name
 
 
 def _trim_callno_components(item: dict):

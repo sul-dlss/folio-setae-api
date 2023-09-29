@@ -81,14 +81,16 @@ async def read_item(
                             print(f["code"])
                             item["fund"] = f["code"]
 
-            # Retrives permanent location id and name from Holdings
-            permanent_location_id, permanent_location = _retrieve_permanent_location(
+            # Retrieves permanent location id and name from Holdings along instance id
+            permanent_location_id, permanent_location, instance_id = _retrieve_permanent_location(
                 holdings, headers
             )
             item["effectiveLocation"] = {
                 "id": permanent_location_id,
                 "name": permanent_location,
             }
+
+
 
             # Trim spaces from call number components
             prefix, suffix = _trim_callno_components(item=item)
@@ -117,6 +119,8 @@ async def read_item(
 
             xml_raw = json2xml.Json2xml(item, wrapper="item").to_xml()
 
+            
+
         except IndexError:
             xml_raw = etree.tostring(
                 E.error(E.message(f"No item found for barcode {barcode}"))
@@ -126,12 +130,60 @@ async def read_item(
             # Transform XML to align with ALMA's RESTful API response
             transform = etree.XSLT(etree.parse("./alma-rest-item.xsl"))
             result = transform(etree.fromstring(xml_raw))
+
+            # Retrieves instance and updates XML
+            result = _instance_xml(result, instance_id, headers)
+
             xml = bytes(result)
 
         else:
             xml = xml_raw
 
         return Response(content=xml, media_type="application/xml")
+
+
+def _get_collection_name(instance: dict, headers: dict) -> str:
+    """
+    Retrieves Collection Name from the instance
+    """
+    collection_note = ""
+    note_result = requests.get(
+        f"""{os.getenv('OKAPI_URL')}/instance-note-types?query=(name=="Collection name")""",
+        headers=headers
+    )
+    note_result.raise_for_status()
+    if len(note_result.json()['instanceNoteTypes']) < 1:
+        return collection_note
+    collection_note_id = note_result.json()['instanceNoteTypes'][0]['id']
+    for note in instance.get("notes"):
+        if note["instanceNoteTypeId"] == collection_note_id:
+            collection_note = note["note"]
+            break
+    return collection_note
+
+
+def _instance_xml(xml: etree._XSLTResultTree, instance_id: str, headers: dict):
+    """
+    Retrieves FOLIO Instance and updates XML
+    """
+    instance_result = requests.get(
+        f"{os.getenv('OKAPI_URL')}/inventory/instances/{instance_id}",
+        headers=headers
+    )
+    instance_result.raise_for_status()
+    instance = instance_result.json()
+
+    # Sets specific XML elements
+    date_of_publication_elem = xml.find("bib_data/date_of_publication")
+    date_of_publication_elem.text = instance["publication"][0]['dateOfPublication']
+
+    mms_id_elem = xml.find("bib_data/mms_id")
+    mms_id_elem.text = instance["hrid"]
+
+    public_note_elem = xml.find("item_data/public_note")
+    public_note_elem.text = _get_collection_name(instance, headers)
+
+    return xml
 
 
 def _okapi_login():
@@ -174,7 +226,9 @@ def _retrieve_permanent_location(holdings_id: str, okapi_headers: dict) -> tuple
         headers=okapi_headers,
     )
     holdings_result.raise_for_status()
-    permanent_location_id = holdings_result.json().get("permanentLocationId")
+    holdings_record = holdings_result.json()
+    permanent_location_id = holdings_record.get("permanentLocationId")
+    instance_id = holdings_record.get('instanceId')
     if permanent_location_id is None:
         raise ValueError(f"Holding {holdings_id} missing permanent location")
     location_result = requests.get(
@@ -185,7 +239,7 @@ def _retrieve_permanent_location(holdings_id: str, okapi_headers: dict) -> tuple
     location_name = location_result.json().get("name")
     if location_name is None:
         raise ValueError(f"Location {permanent_location_id} missing Name")
-    return permanent_location_id, location_name
+    return permanent_location_id, location_name, instance_id
 
 
 def _trim_callno_components(item: dict):

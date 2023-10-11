@@ -68,3 +68,9 @@ You can request the original, unmodified JSON from FOLIO using the `format` para
 http://localhost/items/{barcode}?format=json
 
 > Refer to the generated [API documentation for the /items endpoint](http://localhost/docs#/default/read_item_items__barcode__get) for all available parameters
+
+
+## Deploying to Kubernetes
+After merging a branch into main, a Github action should generate a new image for deployment in a FOLIO Kubernetes cluster. To deploy the pod, run the following commands from the FOLIO Helm repository:
+- Uninstall the pod `helm -n $namespace uninstall setae-api`
+- Re-install the pod `helm -n $namespace upgrade -f {path-to-folio-k8s}/setae-api/setae-api-folio-test.yaml setae-api setae-api/` 

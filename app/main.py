@@ -81,15 +81,18 @@ async def read_item(
                             print(f["code"])
                             item["fund"] = f["code"]
 
+
+            holdings_record = _get_holdings_record(holdings, headers)
+
             # Retrieves permanent location id and name from Holdings along instance id
             permanent_location_id, permanent_location, instance_id = _retrieve_permanent_location(
-                holdings, headers
+                holdings_record, headers
             )
+
             item["effectiveLocation"] = {
                 "id": permanent_location_id,
                 "name": permanent_location,
             }
-
 
 
             # Trim spaces from call number components
@@ -134,6 +137,9 @@ async def read_item(
             # Retrieves instance and updates XML
             result = _instance_xml(result, instance_id, headers)
 
+            # Updates Call Number Type based on holdings
+            result = _set_callno_type(holdings_record, result, headers)
+
             xml = bytes(result)
 
         else:
@@ -160,6 +166,15 @@ def _get_collection_name(instance: dict, headers: dict) -> str:
             collection_note = note["note"]
             break
     return collection_note
+
+
+def _get_holdings_record(holdings_id: str, okapi_headers: dict) -> dict:
+    holdings_result = requests.get(
+        f"{os.getenv('OKAPI_URL')}/holdings-storage/holdings/{holdings_id}",
+        headers=okapi_headers,
+    )
+    holdings_result.raise_for_status()
+    return holdings_result.json()
 
 
 def _instance_xml(xml: etree._XSLTResultTree, instance_id: str, headers: dict):
@@ -216,17 +231,10 @@ def _replace_string(string: str, regex: List):
     return string
 
 
-def _retrieve_permanent_location(holdings_id: str, okapi_headers: dict) -> tuple:
+def _retrieve_permanent_location(holdings_record: dict, okapi_headers: dict) -> tuple:
     """
-    Queries Holdings and Locations Okapi endpoints and returns uuid and name
-    of the location
+    Returns uuid and name of the location based on the holdings record
     """
-    holdings_result = requests.get(
-        f"{os.getenv('OKAPI_URL')}/holdings-storage/holdings/{holdings_id}",
-        headers=okapi_headers,
-    )
-    holdings_result.raise_for_status()
-    holdings_record = holdings_result.json()
     permanent_location_id = holdings_record.get("permanentLocationId")
     instance_id = holdings_record.get('instanceId')
     if permanent_location_id is None:
@@ -240,6 +248,56 @@ def _retrieve_permanent_location(holdings_id: str, okapi_headers: dict) -> tuple
     if location_name is None:
         raise ValueError(f"Location {permanent_location_id} missing Name")
     return permanent_location_id, location_name, instance_id
+
+
+def _set_callno_type(holdings: dict, xml: etree._XSLTResultTree, okapi_headers: dict):
+    """
+    Updates Call Number Type desc property and value based on 
+    """
+    call_number_uuid = holdings['callNumberTypeId']
+    call_number_type_result = requests.get(
+        f"{os.getenv('OKAPI_URL')}/call-number-types/{call_number_uuid}",
+        headers=okapi_headers
+    )
+    call_number_type_result.raise_for_status()
+    name = call_number_type_result.json()["name"]
+    code = None
+    # Matches Ex Libris codes and names at https://developers.exlibrisgroup.com/alma/apis/docs/xsd/rest_item.xsd/?tags=GET#holding_data
+    match name:
+        case "Library of Congress classification":
+            code = 0
+
+        case "LC Modified":
+            code = 0
+            name = "Library of Congress classification"
+
+        case "Dewey Decimal classification":
+            code = 1
+
+        case "National Library of Medicine classification":
+            code = 2
+
+        case "Superintendent of Documents classification":
+            code = 3
+
+        case "Shelving control number":
+            code = 4
+
+        case "Title":
+            code = 5
+
+        case "Shelved separately":
+            code = 6
+
+        case _:
+            name = "Other scheme"
+            code = 8
+
+    call_number_type_elem = xml.find("holding_data/call_number_type")
+    call_number_type_elem.set("desc", name)
+    call_number_type_elem.text = str(code)
+
+    return xml
 
 
 def _trim_callno_components(item: dict):

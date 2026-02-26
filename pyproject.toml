@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "setae-api"
+name = "folio-setae-api"
 version = "0.3.0"
 description = "API middleware for FOLIO"
 authors = ["Nick Cappadona <cappadona@users.noreply.github.com>"]

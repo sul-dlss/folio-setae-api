@@ -8,7 +8,7 @@ RUN curl -sSL https://install.python-poetry.org | POETRY_HOME=/opt/poetry python
 
 COPY ./pyproject.toml /app/
 
-RUN poetry install --without dev
+RUN poetry install
 
 COPY ./app /app
 

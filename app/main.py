@@ -218,12 +218,7 @@ def _okapi_login():
     r = requests.post(url, json=data, headers=headers)
     r.raise_for_status()
     if r.status_code == 201:
-        cookies = r.headers.get("Set-Cookie")
-        if cookies:
-            for cookie in cookies.split(';'):
-                if cookie.startswith("folioAccessToken="):
-                    r.headers["X-Okapi-Token"] = cookie.split("=")[1].split(";")[0]
-                    return r.headers["X-Okapi-Token"]
+        return r.json()["okapiToken"]
     return None
 
 def _reps_to_regex(replacements: List, field: str):

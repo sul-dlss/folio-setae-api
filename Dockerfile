@@ -14,6 +14,6 @@ RUN curl -sSL https://install.python-poetry.org | python3 -
 
 COPY ./pyproject.toml /app/
 
-RUN poetry install --without dev
+RUN poetry install
 
 COPY ./app /app

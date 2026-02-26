@@ -213,7 +213,7 @@ def _okapi_login():
     r = requests.post(url, json=data, headers=headers)
     r.raise_for_status()
     if r.status_code == 201:
-        return r.headers["X-Okapi-Token"]
+        return r.json()["okapiToken"]
     return None
 
 

@@ -264,6 +264,7 @@ def _set_callno_type(holdings: dict, xml: etree._XSLTResultTree, okapi_headers: 
         headers=okapi_headers
     )
     call_number_type_result.raise_for_status()
+    print(call_number_type_result.json())
     name = call_number_type_result.json()["name"]
     code = None
     # Matches Ex Libris codes and names at https://developers.exlibrisgroup.com/alma/apis/docs/xsd/rest_item.xsd/?tags=GET#holding_data

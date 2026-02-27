@@ -1,4 +1,5 @@
-FROM tiangolo/uvicorn-gunicorn-fastapi:python3.11
+# FROM tiangolo/uvicorn-gunicorn-fastapi:python3.11
+FROM tiangolo/uvicorn-gunicorn-fastapi:python3.11-2024-11-18
 
 # Install Poetry
 RUN curl -sSL https://install.python-poetry.org | POETRY_HOME=/opt/poetry python && \

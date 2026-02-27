@@ -7,15 +7,12 @@ from lxml import etree
 from lxml.builder import E
 from typing import Callable, List, Optional
 import csv
-import logging
 import os
 import re
 import requests
 
 load_dotenv()
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG) 
 
 class StripSpineOMaticAPIKey(APIRoute):
     def get_route_handler(self) -> Callable:
@@ -267,7 +264,6 @@ def _set_callno_type(holdings: dict, xml: etree._XSLTResultTree, okapi_headers: 
         headers=okapi_headers
     )
     call_number_type_result.raise_for_status()
-    logger.info(f"Call number type result: {call_number_type_result.json()}")
     name = call_number_type_result.json()["name"]
     code = None 
     # Matches Ex Libris codes and names at https://developers.exlibrisgroup.com/alma/apis/docs/xsd/rest_item.xsd/?tags=GET#holding_data

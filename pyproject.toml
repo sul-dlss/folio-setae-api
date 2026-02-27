@@ -1,24 +1,25 @@
 [tool.poetry]
-name = "setae-api"
-version = "0.3.0"
+name = "folio-setae-api"
+version = "0.4.0"
 description = "API middleware for FOLIO"
-authors = ["Nick Cappadona <cappadona@users.noreply.github.com>"]
+authors = ["Nick Cappadona <cappadona@users.noreply.github.com>", "Joshua Greben <jgreben@stanford.edu>"]
+package-mode = false
 
 [tool.poetry.dependencies]
-python = "^3.8"
-fastapi = "^0.88.0"
-json2xml = "^3.5.0"
-requests = "^2.24.0"
-uvicorn = "^0.12.1"
-python-dotenv = "^0.14.0"
-lxml = "^4.6.2"
-httpcore = "0.15.0"
+python = "^3.12"
+fastapi = "^0.133.1"
+json2xml = "^6.0.4"
+requests = "^2.32.5"
+python-dotenv = "^1.2.1"
+lxml = "^6.0.2"
+httpcore = "^1.0.9"
 
-[tool.poetry.dev-dependencies]
-mypy = "^0.812"
-flake8 = "^3.9.2"
-black = "^21.5b1"
+[tool.poetry.group.dev.dependencies]
+mypy = "^1.19.1"
+flake8 = "^7.3.0"
+black = "^26.1.0"
+
 
 [build-system]
-requires = ["poetry-core>=1.0.0"]
+requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"

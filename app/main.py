@@ -120,9 +120,10 @@ async def read_item(
                     )
                     item["effectiveCallNumberComponents"]["suffix"] = processed_suffix
 
-            xml_raw = json2xml.Json2xml(item, wrapper="item").to_xml()
-
-            
+            # xml_raw = json2xml.Json2xml(item, wrapper="item").to_xml()
+            converter = json2xml.Json2xml(item, wrapper="item")
+            xml_with_decl = converter.to_xml()
+            xml_raw = "\n".join(xml_with_decl.split("\n")[1:])
 
         except IndexError:
             xml_raw = etree.tostring(
@@ -213,7 +214,7 @@ def _okapi_login():
     r = requests.post(url, json=data, headers=headers)
     r.raise_for_status()
     if r.status_code == 201:
-        return r.headers["X-Okapi-Token"]
+        return r.json()["okapiToken"]
     return None
 
 
